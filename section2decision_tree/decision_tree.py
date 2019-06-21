@@ -3,6 +3,7 @@
 
 from math import log
 from numpy import *
+import operator
 
 
 def calcShannonEnt(dataSet):
@@ -86,3 +87,71 @@ def chooseBestFeaturetoSplit(dataset):
             bestFeature = i
 
     return bestFeature
+
+
+def majorityCnt(classlist):
+    classCount = {}
+    for vote in classlist:
+        classCount[vote] = classCount.get(vote, 0) + 1
+    sortedCount = sorted(classCount.items(), key=operator.itemgetter(1), reverse=True);
+    # 获取每一类出现的节点数（没出现默认为0）并进行排序
+    # 返回最大项的KEY对应的类别
+    return sortedCount[0][0]
+
+
+def create_tree(dataset, label):
+    classlist = [example[-1] for example in dataset]
+    # 类别完全相同则停止划分
+    if classlist.count(classlist[0]) == len(classlist):
+        return classlist[0]
+    if len(dataset[0]) == 1:
+        return majorityCnt(classlist)
+    bestFeat = chooseBestFeaturetoSplit(dataset)
+    bestFeatLabel = label[bestFeat]
+    myTree = {bestFeatLabel: {}}
+
+    subLabels = label[:]
+    # 删除属性列表中当前分类数据集特征
+    del (subLabels[bestFeat])
+    # 使用列表推导式生成该特征对应的列
+    featValues = [example[bestFeat] for example in dataset]
+    uniqueVals = set(featValues)
+    for value in uniqueVals:
+        # 递归创建子树并返回
+        myTree[bestFeatLabel][value] = create_tree(splitDataSet(dataset, bestFeat, value), subLabels)
+
+    return myTree
+
+
+def classify(inputTree, featLabels, testVec):
+    firstStr = inputTree.keys()
+    firstStr = list(firstStr)[0]
+    secondDict = inputTree[firstStr]
+    featIndex = featLabels.index(firstStr)
+    for key in secondDict.keys():
+        if testVec[featIndex] == key:
+            if type(secondDict[key]).__name__ == 'dict':
+                classLabel = classify(secondDict[key], featLabels, testVec)
+            else:
+                classLabel = secondDict[key]
+    return classLabel
+
+
+def store_tree(inp_tree, filename):
+    import pickle
+    with open(filename, 'wb+') as fp:
+        pickle.dump(inp_tree, fp)
+
+
+def grab_tree(filename):
+    import pickle
+    fr = open(filename, 'rb')
+    return pickle.load(fr)
+
+
+def graplensesData():
+    fr = open('lenses.txt')
+    lenses = [inst.strip().split('\t') for inst in fr.readlines()]
+    lensesLabels = ['age', 'prescript', 'astigmatic', 'tearRate']
+    lensesTree = create_tree(lenses,lensesLabels)
+    return lensesTree
